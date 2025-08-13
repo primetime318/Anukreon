@@ -1,0 +1,64 @@
+name: Build & Deploy to Cloud Run
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.REGION }}
+  SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+  RUNTIME_SA: anukreon-runtime@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+  IMAGE: us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/anukreon/${{ secrets.SERVICE_NAME }}:${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Auth to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup gcloud
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Enable services (safe to re-run)
+      run: |
+        gcloud services enable run.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
+
+    - name: Create Artifact Registry repo (idempotent)
+      run: |
+        gcloud artifacts repositories create anukreon --location=$REGION --repository-format=DOCKER || true
+
+    - name: Build & push image with Cloud Build
+      run: |
+        gcloud builds submit --tag "$IMAGE" .
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy "$SERVICE_NAME" \
+          --image "$IMAGE" \
+          --region "$REGION" \
+          --platform managed \
+          --allow-unauthenticated \
+          --service-account "$RUNTIME_SA" \
+          --memory 1Gi --cpu 1 \
+          --min-instances 1 --max-instances 5 --cpu-boost \
+          --set-env-vars "PORT=8080" \
+          --set-secrets "DISCORD_BOT_TOKEN=DISCORD_BOT_TOKEN:latest" \
+          --set-secrets "KRAKEN_API_KEY=KRAKEN_API_KEY:latest" \
+          --set-secrets "KRAKEN_API_SECRET=KRAKEN_API_SECRET:latest" \
+          --set-secrets "OKX_API_KEY=OKX_API_KEY:latest" \
+          --set-secrets "OKX_SECRET_KEY=OKX_SECRET_KEY:latest" \
+          --set-secrets "OKX_PASSPHRASE=OKX_PASSPHRASE:latest"

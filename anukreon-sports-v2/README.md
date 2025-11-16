@@ -5,6 +5,7 @@ Minimal NBA Monte Carlo API (FastAPI) suitable for Render deployment.
 ## Local dev
 ```bash
 pip install -r requirements.txt
+cp .env.example .env  # tweak ALLOW_ORIGINS etc. as needed
 uvicorn app.main:app --reload
 ```
 
@@ -25,6 +26,15 @@ Open http://127.0.0.1:8000/health
 curl -X POST http://127.0.0.1:8000/api/sim/nba \
  -H "Content-Type: application/json" \
  -d '{"off_home":116,"def_home":111,"pace_home":97.5,"off_away":113,"def_away":112,"pace_away":99.0,"total_line":226.5,"spread_home_line":-4.5,"n":20000}'
+```
+
+## Testing
+
+Run the lightweight pytest suite to confirm the simulator returns the required
+keys before pushing changes or deploying:
+
+```bash
+pytest -q
 ```
 
 ## Render

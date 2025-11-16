@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: anukreon-sim-api
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers"
+    envVars:
+      - key: ENV
+        value: prod
+      - key: ALLOW_ORIGINS
+        value: "*"
